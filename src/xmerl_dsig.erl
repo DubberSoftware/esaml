@@ -162,6 +162,15 @@ digest(Element, HashFunction) ->
 %% than rsa+sha1 or sha256 this will asplode. Don't say I didn't warn you.
 -spec verify(Element :: #xmlElement{}, Fingerprints :: [fingerprint()] | any) -> ok | {error, bad_digest | bad_signature | cert_not_accepted}.
 verify(Element, Fingerprints) ->
+verify(Element, Fingerprints, nil).
+
+%% @doc Dubber change with optional x509 certificate as parameter
+%%
+%% This certificate to be used when X509Certificate child is not found
+%%
+%%
+-spec verify(Element :: #xmlElement{}, Fingerprints :: [fingerprint()] | any, SkipCert :: binary | any) -> ok | {error, bad_digest | bad_signature | cert_not_accepted}.
+verify(Element, Fingerprints, SkipCert) ->
     DsNs = [{"ds", 'http://www.w3.org/2000/09/xmldsig#'},
         {"ec", 'http://www.w3.org/2001/10/xml-exc-c14n#'}],
 
@@ -194,8 +203,11 @@ verify(Element, Fingerprints) ->
         [#xmlText{value = Sig64}] = xmerl_xpath:string("ds:Signature//ds:SignatureValue/text()", Element, [{namespace, DsNs}]),
         Sig = base64:decode(Sig64),
 
-        [#xmlText{value = Cert64}] = xmerl_xpath:string("ds:Signature//ds:X509Certificate/text()", Element, [{namespace, DsNs}]),
-        CertBin = base64:decode(Cert64),
+        CertBin = case xmerl_xpath:string("ds:Signature//ds:X509Certificate/text()", Element, [{namespace, DsNs}]) of
+          [] -> SkipCert;
+          [#xmlText{value = Cert64}] -> base64:decode(Cert64)
+        end,
+%%        CertBin = base64:decode(Cert64),
         CertHash = crypto:hash(sha, CertBin),
         CertHash2 = crypto:hash(sha256, CertBin),
 
