@@ -13,7 +13,7 @@
 -include_lib("xmerl/include/xmerl.hrl").
 
 -export([setup/1, generate_authn_request/2, generate_authn_request/3, generate_metadata/1]).
--export([validate_assertion/2, validate_assertion/3]).
+-export([validate_assertion/2, validate_assertion/3, validate_assertion/4]).
 -export([generate_logout_request/3, generate_logout_request/4, generate_logout_response/3]).
 -export([validate_logout_request/2, validate_logout_response/2]).
 
@@ -239,6 +239,15 @@ validate_assertion(Xml, SP = #esaml_sp{}) ->
 -spec validate_assertion(xml(), dupe_fun(), esaml:sp()) ->
         {ok, esaml:assertion()} | {error, Reason :: term()}.
 validate_assertion(Xml, DuplicateFun, SP = #esaml_sp{}) ->
+    validate_assertion(Xml, DuplicateFun, SP, nil).
+
+%% @doc Validate and decode an assertion envelope in parsed XML
+%%
+%% sign_cert() is x509 cert to be used if SAML response is missing
+%% X509Certificate element (Cisco)
+-spec validate_assertion(xml(), dupe_fun(), esaml:sp(), SignCert :: binary | any) ->
+        {ok, esaml:assertion()} | {error, Reason :: term()}.
+validate_assertion(Xml, DuplicateFun, SP = #esaml_sp{}, SignCert) ->
     Ns = [{"samlp", 'urn:oasis:names:tc:SAML:2.0:protocol'},
           {"saml", 'urn:oasis:names:tc:SAML:2.0:assertion'}],
     esaml_util:threaduntil([
@@ -262,7 +271,7 @@ validate_assertion(Xml, DuplicateFun, SP = #esaml_sp{}) ->
         fun(A) ->
             if
                 SP#esaml_sp.idp_signs_envelopes ->
-                    case xmerl_dsig:verify(Xml, SP#esaml_sp.trusted_fingerprints) of
+                    case xmerl_dsig:verify(Xml, SP#esaml_sp.trusted_fingerprints, SignCert) of
                         ok -> A;
                         OuterError -> {error, {envelope, OuterError}}
                     end;
@@ -271,7 +280,7 @@ validate_assertion(Xml, DuplicateFun, SP = #esaml_sp{}) ->
         end,
         fun(A) ->
             if SP#esaml_sp.idp_signs_assertions ->
-                case xmerl_dsig:verify(A, SP#esaml_sp.trusted_fingerprints) of
+                case xmerl_dsig:verify(A, SP#esaml_sp.trusted_fingerprints, SignCert) of
                     ok -> A;
                     InnerError -> {error, {assertion, InnerError}}
                 end;
