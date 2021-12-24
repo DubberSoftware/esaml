@@ -11,6 +11,7 @@
 
 -include("esaml.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -export([setup/1, generate_authn_request/2, generate_authn_request/3, generate_metadata/1]).
 -export([validate_assertion/2, validate_assertion/3, validate_assertion/4]).
@@ -169,7 +170,8 @@ validate_logout_request(Xml, SP = #esaml_sp{}) ->
         fun(X) ->
             case xmerl_xpath:string("/samlp:LogoutRequest", X, [{namespace, Ns}]) of
                 [#xmlElement{}] -> X;
-                _ -> {error, bad_assertion}
+                Error -> logger:error("ESAML_SP: Failed parsing LogoutRequest XML with: ~ts",[Error]),
+                {error, bad_assertion}
             end
         end,
         fun(X) ->
@@ -259,12 +261,14 @@ validate_assertion(Xml, DuplicateFun, SP = #esaml_sp{}, SignCert) ->
                         xmerl_xpath:string("/saml:Assertion", DecryptedAssertion, [{namespace, Ns}]) of
                         [A2] -> A2
                     catch
-                        _Error:_Reason -> {error, bad_assertion}
+                        _Error:Reason -> logger:error("ESAML_SP: Validate assertion failed with : ~ts",[Reason]),
+                        {error, bad_assertion}
                     end;
                 _ ->
                     case xmerl_xpath:string("/samlp:Response/saml:Assertion", X, [{namespace, Ns}]) of
                         [A3] -> A3;
-                        _ -> {error, bad_assertion}
+                        Error -> logger:error("ESAML_SP: Validate assertion failed with : ~ts",[Error]),
+                        {error, bad_assertion}
                     end
             end
         end,
