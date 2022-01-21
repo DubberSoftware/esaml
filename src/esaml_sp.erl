@@ -261,14 +261,12 @@ validate_assertion(Xml, DuplicateFun, SP = #esaml_sp{}, SignCert) ->
                         xmerl_xpath:string("/saml:Assertion", DecryptedAssertion, [{namespace, Ns}]) of
                         [A2] -> A2
                     catch
-                        _Error:Reason -> logger:error("ESAML_SP: Validate assertion failed with : ~p",[Reason]),
-                        {error, bad_assertion, Reason}
+                        Error -> {error, bad_assertion, Error}
                     end;
                 _ ->
                     case xmerl_xpath:string("/samlp:Response/saml:Assertion", X, [{namespace, Ns}]) of
                         [A3] -> A3;
-                        Error -> logger:error("ESAML_SP: Validate assertion failed with : ~p",[Error]),
-                        {error, bad_assertion, Error}
+                        Error -> {error, bad_assertion, Error}
                     end
             end
         end,
