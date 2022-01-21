@@ -248,7 +248,7 @@ validate_assertion(Xml, DuplicateFun, SP = #esaml_sp{}) ->
 %% sign_cert() is x509 cert to be used if SAML response is missing
 %% X509Certificate element (Cisco)
 -spec validate_assertion(xml(), dupe_fun(), esaml:sp(), SignCert :: binary | any) ->
-        {ok, esaml:assertion()} | {error, Reason :: term()}.
+        {ok, esaml:assertion()} | {error, Reason :: term()} | {error, Reason :: term(), Details :: any}.
 validate_assertion(Xml, DuplicateFun, SP = #esaml_sp{}, SignCert) ->
     Ns = [{"samlp", 'urn:oasis:names:tc:SAML:2.0:protocol'},
           {"saml", 'urn:oasis:names:tc:SAML:2.0:assertion'}],
@@ -261,14 +261,14 @@ validate_assertion(Xml, DuplicateFun, SP = #esaml_sp{}, SignCert) ->
                         xmerl_xpath:string("/saml:Assertion", DecryptedAssertion, [{namespace, Ns}]) of
                         [A2] -> A2
                     catch
-                        _Error:Reason -> logger:error("ESAML_SP: Validate assertion failed with : ~ts",[Reason]),
-                        {error, bad_assertion}
+                        _Error:Reason -> logger:error("ESAML_SP: Validate assertion failed with : ~p",[Reason]),
+                        {error, bad_assertion, Reason}
                     end;
                 _ ->
                     case xmerl_xpath:string("/samlp:Response/saml:Assertion", X, [{namespace, Ns}]) of
                         [A3] -> A3;
-                        Error -> logger:error("ESAML_SP: Validate assertion failed with : ~ts",[Error]),
-                        {error, bad_assertion}
+                        Error -> logger:error("ESAML_SP: Validate assertion failed with : ~p",[Error]),
+                        {error, bad_assertion, Error}
                     end
             end
         end,
