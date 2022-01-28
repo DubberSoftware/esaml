@@ -11,9 +11,10 @@
 
 -include("esaml.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -export([setup/1, generate_authn_request/2, generate_authn_request/3, generate_metadata/1]).
--export([validate_assertion/2, validate_assertion/3]).
+-export([validate_assertion/2, validate_assertion/3, validate_assertion/4]).
 -export([generate_logout_request/3, generate_logout_request/4, generate_logout_response/3]).
 -export([validate_logout_request/2, validate_logout_response/2]).
 
@@ -169,7 +170,8 @@ validate_logout_request(Xml, SP = #esaml_sp{}) ->
         fun(X) ->
             case xmerl_xpath:string("/samlp:LogoutRequest", X, [{namespace, Ns}]) of
                 [#xmlElement{}] -> X;
-                _ -> {error, bad_assertion}
+                Error -> logger:error("ESAML_SP: Failed parsing LogoutRequest XML with: ~ts",[Error]),
+                {error, bad_assertion}
             end
         end,
         fun(X) ->
@@ -239,6 +241,15 @@ validate_assertion(Xml, SP = #esaml_sp{}) ->
 -spec validate_assertion(xml(), dupe_fun(), esaml:sp()) ->
         {ok, esaml:assertion()} | {error, Reason :: term()}.
 validate_assertion(Xml, DuplicateFun, SP = #esaml_sp{}) ->
+    validate_assertion(Xml, DuplicateFun, SP, nil).
+
+%% @doc Validate and decode an assertion envelope in parsed XML
+%%
+%% sign_cert() is x509 cert to be used if SAML response is missing
+%% X509Certificate element (Cisco)
+-spec validate_assertion(xml(), dupe_fun(), esaml:sp(), SignCert :: binary | any) ->
+        {ok, esaml:assertion()} | {error, Reason :: term()} | {error, Reason :: term(), Details :: any}.
+validate_assertion(Xml, DuplicateFun, SP = #esaml_sp{}, SignCert) ->
     Ns = [{"samlp", 'urn:oasis:names:tc:SAML:2.0:protocol'},
           {"saml", 'urn:oasis:names:tc:SAML:2.0:assertion'}],
     esaml_util:threaduntil([
@@ -250,19 +261,19 @@ validate_assertion(Xml, DuplicateFun, SP = #esaml_sp{}) ->
                         xmerl_xpath:string("/saml:Assertion", DecryptedAssertion, [{namespace, Ns}]) of
                         [A2] -> A2
                     catch
-                        _Error:_Reason -> {error, bad_assertion}
+                        Error -> {error, bad_assertion, Error}
                     end;
                 _ ->
                     case xmerl_xpath:string("/samlp:Response/saml:Assertion", X, [{namespace, Ns}]) of
                         [A3] -> A3;
-                        _ -> {error, bad_assertion}
+                        Error -> {error, bad_assertion, Error}
                     end
             end
         end,
         fun(A) ->
             if
                 SP#esaml_sp.idp_signs_envelopes ->
-                    case xmerl_dsig:verify(Xml, SP#esaml_sp.trusted_fingerprints) of
+                    case xmerl_dsig:verify(Xml, SP#esaml_sp.trusted_fingerprints, SignCert) of
                         ok -> A;
                         OuterError -> {error, {envelope, OuterError}}
                     end;
@@ -271,7 +282,7 @@ validate_assertion(Xml, DuplicateFun, SP = #esaml_sp{}) ->
         end,
         fun(A) ->
             if SP#esaml_sp.idp_signs_assertions ->
-                case xmerl_dsig:verify(A, SP#esaml_sp.trusted_fingerprints) of
+                case xmerl_dsig:verify(A, SP#esaml_sp.trusted_fingerprints, SignCert) of
                     ok -> A;
                     InnerError -> {error, {assertion, InnerError}}
                 end;
@@ -368,18 +379,18 @@ block_decrypt("http://www.w3.org/2009/xmlenc11#aes128-gcm", SymmetricKey, Cipher
     %% IV: 12 bytes and Tag data: 16 bytes
     EncryptedDataSize = byte_size(CipherValue) - 12 - 16,
     <<IV:12/binary, EncryptedData:EncryptedDataSize/binary, Tag:16/binary>> = CipherValue,
-    DecryptedData = crypto:block_decrypt(aes_gcm, SymmetricKey, IV, {<<>>, EncryptedData, Tag}),
+    DecryptedData = crypto:crypto_one_time_aead(aes_128_gcm, SymmetricKey, IV, EncryptedData, <<>>, Tag, false),
     binary_to_list(DecryptedData);
 
 block_decrypt("http://www.w3.org/2001/04/xmlenc#aes128-cbc", SymmetricKey, CipherValue) ->
     <<IV:16/binary, EncryptedData/binary>> = CipherValue,
-    DecryptedData = crypto:block_decrypt(aes_cbc128, SymmetricKey, IV, EncryptedData),
+    DecryptedData = crypto:crypto_one_time(aes_128_cbc, SymmetricKey, IV, EncryptedData, false),
     IsPadding = fun(X) -> X < 16 end,
     lists:reverse(lists:dropwhile(IsPadding, lists:reverse(binary_to_list(DecryptedData))));
 
 block_decrypt("http://www.w3.org/2001/04/xmlenc#aes256-cbc", SymmetricKey, CipherValue) ->
     <<IV:16/binary, EncryptedData/binary>> = CipherValue,
-    DecryptedData = crypto:block_decrypt(aes_cbc256, SymmetricKey, IV, EncryptedData),
+    DecryptedData = crypto:crypto_one_time(aes_256_cbc, SymmetricKey, IV, EncryptedData, false),
     IsPadding = fun(X) -> X < 16 end,
     lists:reverse(lists:dropwhile(IsPadding, lists:reverse(binary_to_list(DecryptedData)))).
 
