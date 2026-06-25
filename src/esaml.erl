@@ -516,29 +516,29 @@ to_xml(#esaml_logoutresp{version = V, issue_instant  = Time,
 
       Ns = #xmlNamespace{nodes = [{"md", 'urn:oasis:names:tc:SAML:2.0:metadata'},
                                   {"saml", 'urn:oasis:names:tc:SAML:2.0:assertion'},
-                                  {"dsig", 'http://www.w3.org/2000/09/xmldsig#'}]},
+                                  {"ds", 'http://www.w3.org/2000/09/xmldsig#'}]},
 
       KeyDescriptorElems = case CertBin of
           undefined -> [];
           C when is_binary(C) -> [
               #xmlElement{name = 'md:KeyDescriptor',
                   attributes = [#xmlAttribute{name = 'use', value = "signing"}],
-                  content = [#xmlElement{name = 'dsig:KeyInfo',
-                      content = [#xmlElement{name = 'dsig:X509Data',
+                  content = [#xmlElement{name = 'ds:KeyInfo',
+                      content = [#xmlElement{name = 'ds:X509Data',
                           content =
-                                  [#xmlElement{name = 'dsig:X509Certificate',
+                                  [#xmlElement{name = 'ds:X509Certificate',
                               content = [#xmlText{value = base64:encode_to_string(CertBin)}]} |
-                                  [#xmlElement{name = 'dsig:X509Certificate',
+                                  [#xmlElement{name = 'ds:X509Certificate',
                               content = [#xmlText{value = base64:encode_to_string(CertChainBin)}]} || CertChainBin <- CertChain]]}]}]},
 
               #xmlElement{name = 'md:KeyDescriptor',
                   attributes = [#xmlAttribute{name = 'use', value = "encryption"}],
-                  content = [#xmlElement{name = 'dsig:KeyInfo',
-                      content = [#xmlElement{name = 'dsig:X509Data',
+                  content = [#xmlElement{name = 'ds:KeyInfo',
+                      content = [#xmlElement{name = 'ds:X509Data',
                           content =
-                                  [#xmlElement{name = 'dsig:X509Certificate',
+                                  [#xmlElement{name = 'ds:X509Certificate',
                               content = [#xmlText{value = base64:encode_to_string(CertBin)}]} |
-                                  [#xmlElement{name = 'dsig:X509Certificate',
+                                  [#xmlElement{name = 'ds:X509Certificate',
                               content = [#xmlText{value = base64:encode_to_string(CertChainBin)}]} || CertChainBin <- CertChain]]}]}]}
 
           ]
@@ -595,7 +595,7 @@ to_xml(#esaml_logoutresp{version = V, issue_instant  = Time,
 attributes = [
               #xmlAttribute{name = 'xmlns:md', value = atom_to_list(proplists:get_value("md", Ns#xmlNamespace.nodes))},
               #xmlAttribute{name = 'xmlns:saml', value = atom_to_list(proplists:get_value("saml", Ns#xmlNamespace.nodes))},
-              #xmlAttribute{name = 'xmlns:ds', value = atom_to_list(proplists:get_value("dsig", Ns#xmlNamespace.nodes))},
+              #xmlAttribute{name = 'xmlns:ds', value = atom_to_list(proplists:get_value("ds", Ns#xmlNamespace.nodes))},
               #xmlAttribute{name = 'entityID', value = EntityID}
           ], content = [
               SPSSODescriptorElem,
