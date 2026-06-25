@@ -401,7 +401,9 @@ validate_assertion(AssertionXml, Recipient, Audience) ->
                         case proplists:get_value(audience, Conds) of
                             undefined -> A;
                             Audience -> A;
-                            _ -> {error, bad_audience}
+                            Other ->
+                                logger:error("ESAML: bad_audience - expected: ~ts, got: ~ts", [Audience, Other]),
+                                {error, bad_audience}
                         end;
                     _ -> A
                 end end,
@@ -548,9 +550,6 @@ to_xml(#esaml_logoutresp{version = V, issue_instant  = Time,
           undefined -> [];
           _ -> [
               #xmlElement{name = 'md:SingleLogoutService',
-                  attributes = [#xmlAttribute{name = 'Binding', value = "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"},
-                                #xmlAttribute{name = 'Location', value = SLOLoc}]},
-              #xmlElement{name = 'md:SingleLogoutService',
                   attributes = [#xmlAttribute{name = 'Binding', value = "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"},
                                 #xmlAttribute{name = 'Location', value = SLOLoc}]}
           ]
@@ -561,10 +560,6 @@ to_xml(#esaml_logoutresp{version = V, issue_instant  = Time,
               attributes = [#xmlAttribute{name = 'isDefault', value = "true"},
                             #xmlAttribute{name = 'index', value = "0"},
                             #xmlAttribute{name = 'Binding', value = "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"},
-                            #xmlAttribute{name = 'Location', value = ConsumerLoc}]},
-          #xmlElement{name = 'md:AssertionConsumerService',
-              attributes = [#xmlAttribute{name = 'index', value = "1"},
-                            #xmlAttribute{name = 'Binding', value = "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"},
                             #xmlAttribute{name = 'Location', value = ConsumerLoc}]}
       ],
 
