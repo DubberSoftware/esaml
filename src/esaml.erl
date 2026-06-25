@@ -592,7 +592,7 @@ to_xml(#esaml_logoutresp{version = V, issue_instant  = Time,
 
       esaml_util:build_nsinfo(Ns, #xmlElement{
           name = 'md:EntityDescriptor',
-          attributes = [
+attributes = [
               #xmlAttribute{name = 'xmlns:md', value = atom_to_list(proplists:get_value("md", Ns#xmlNamespace.nodes))},
               #xmlAttribute{name = 'xmlns:saml', value = atom_to_list(proplists:get_value("saml", Ns#xmlNamespace.nodes))},
               #xmlAttribute{name = 'xmlns:ds', value = atom_to_list(proplists:get_value("dsig", Ns#xmlNamespace.nodes))},
@@ -602,10 +602,9 @@ to_xml(#esaml_logoutresp{version = V, issue_instant  = Time,
               OrganizationElem,
               ContactElem
           ]
-      });
+    });
 
 to_xml(_) -> error("unknown record").
-
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
